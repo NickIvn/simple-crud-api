@@ -184,7 +184,17 @@ describe('Users Model', () => {
             expect(response.status).toBe(httpConstants.HTTP_STATUS_OK);
             expect(response.body).toHaveLength(2);
         });
-    });
+
+        it('returns existing users with leading slash', async () => {
+            userRepository.create(new User('John', 20, ['hiking', 'reading']));
+            userRepository.create(new User('Nick', 13, ['programming']));
+
+            const response = await request.get('/api/users/');
+
+            expect(response.status).toBe(httpConstants.HTTP_STATUS_OK);
+            expect(response.body).toHaveLength(2);
+        });
+            });
 
     describe('GET /users/:id', () => {
         it('returns 404 when user does not exist', async () => {

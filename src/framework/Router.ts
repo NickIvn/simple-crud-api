@@ -26,24 +26,6 @@ class Router {
         this.endpoints = {};
     }
 
-    // public request(method: string, path: string, handler: HandlerFn) {
-    //     const regExp = pathToRegExp(path);
-
-    //     if (!this.endpoints[regExp]) {
-    //         this.endpoints[regExp] = {};
-    //     }
-
-    //     const endpoint = this.endpoints[regExp];
-
-    //     assertNonNullish(endpoint, 'Endpoint must not be nullish.');
-
-    //     if (Object.prototype.hasOwnProperty.call(endpoint, method)) {
-    //         throw new Error(`Handler for ${method} ${path} has already been declared`);
-    //     }
-
-    //     endpoint[method] = handler;
-    // }
-
     public get(path: string, handler: HandlerFn) {
         this.request(HttpMethod.Get, path, handler);
     }
@@ -65,12 +47,13 @@ class Router {
     }
 
     public matchPath(method: string, path: string): MatchedRouteResult {
+        const pathToMatch = path.replace(/\/$/, '');
         const endpoints = this.getEndpoints();
         const regexMatchesPaths = Object.keys(endpoints);
 
         for (const regexMatchesPath of regexMatchesPaths) {
             const regex = new RegExp(regexMatchesPath);
-            const matches = regex.exec(path);
+            const matches = regex.exec(pathToMatch);
 
             if (!matches) {
                 continue;
@@ -83,8 +66,6 @@ class Router {
             if (!handler) {
                 throw new HttpMethodNotAllowed();
             }
-            assertNonNullish(handler, 'Handler must not be nullish.');
-
             return {
                 handler,
                 placeholderValues: matches.groups,
