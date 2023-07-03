@@ -42,17 +42,13 @@ function validateModel<TClass extends Record<string, any>>(
     validationSchema: Record<string, ValidationRule[]>,
 ): asserts model is TClass {
     checkModelHasNoExtraKeys(model, validationSchema);
-
     let errors: PropertyValidationError[] = [];
-
     for (const [property, propertyValidationRules] of Object.entries(validationSchema)) {
         const propertyErrors = validateProperty(property, model[property], propertyValidationRules);
-
         if (propertyErrors.length > 0) {
             errors = errors.concat(propertyErrors);
         }
     }
-
     if (errors.length > 0) {
         throw new ValidationError(errors);
     }

@@ -17,8 +17,9 @@ module.exports = {
         'import/prefer-default-export': 'off',
         'import/no-default-export': 'error',
         "linebreak-style": 0,
-        "no-restricted-syntax": 'off',
-        "no-continue": "off",
-        "no-use-before-define": 'off'
+        'no-restricted-syntax': 'off',
+        'no-continue': 'off',
+        'no-use-before-define': 'off',
+        'no-console': 'off'
     }
 };
