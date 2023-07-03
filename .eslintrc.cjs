@@ -20,6 +20,7 @@ module.exports = {
         'no-restricted-syntax': 'off',
         'no-continue': 'off',
         'no-use-before-define': 'off',
-        'no-console': 'off'
+        'no-console': 'off',
+        "guard-for-in": "off"
     }
 };
