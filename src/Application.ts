@@ -1,10 +1,15 @@
 import http from 'node:http';
 import { constants as httpConstants } from 'node:http2';
 import { assertNonNullish } from './asserts';
-import { Router } from './Router';
-import { Response } from './Response';
-import { Request } from './Request';
-import { RouteNotMatchedError } from './RouteNotMatchedError';
+import { Router } from './framework/Router';
+import { Response } from './framework/Response';
+import { Request } from './framework/Request';
+import { RouteNotMatchedError } from './error/RouteNotMatchedError';
+import { ValidationError } from './error/ValidationError';
+import { HttpBadRequestError } from './error/HttpBadRequestError';
+import { PropertyValidationError } from './framework/validator/PropertyValidationError';
+import { userRouter } from './userRouter';
+import { HttpMethodNotAllowed } from './error/HttpMethodNotAllowed';
 
 class Application {
     private routers: Router[] = [];
@@ -19,7 +24,7 @@ class Application {
         this.routers.push(router);
     }
 
-    private createServer(baseUrl: string): http.Server {
+    public createServer(baseUrl: string): http.Server {
         return http
             .createServer(
                 {
@@ -49,6 +54,19 @@ class Application {
                             } catch (error) {
                                 if (error instanceof RouteNotMatchedError) {
                                     response.json({ message: 'Not Found.' }, httpConstants.HTTP_STATUS_NOT_FOUND);
+                                } else if (error instanceof ValidationError) {
+                                    response.json({
+                                        violations: error.getErrors().map((validationError: PropertyValidationError) => ({
+                                            property: validationError.getProperty(),
+                                            message: validationError.getMessage(),
+                                        })),
+                                    }, httpConstants.HTTP_STATUS_BAD_REQUEST);
+                                } else if (error instanceof HttpBadRequestError) {
+                                    response.json({ message: error.message }, httpConstants.HTTP_STATUS_BAD_REQUEST);
+                                } else if (error instanceof HttpMethodNotAllowed) {
+                                    response.json({ message: error.message }, httpConstants.HTTP_STATUS_METHOD_NOT_ALLOWED);
+                                } else if (error instanceof SyntaxError) {
+                                    response.json({ message: 'Invalid JSON.' }, httpConstants.HTTP_STATUS_BAD_REQUEST);
                                 } else {
                                     throw error;
                                 }
@@ -76,4 +94,12 @@ class Application {
     }
 }
 
-export { Application };
+const createApplication = (): Application => {
+    const app = new Application();
+
+    app.addRouter(userRouter);
+
+    return app;
+};
+
+export { createApplication };
