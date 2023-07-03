@@ -48,8 +48,7 @@ class Application {
                                 this.executeMatchedHandler(request, response, method, parsedUrl.pathname);
                             } catch (error) {
                                 if (error instanceof RouteNotMatchedError) {
-                                    response.statusCode = httpConstants.HTTP_STATUS_NOT_FOUND;
-                                    response.end();
+                                    response.json({ message: 'Not Found.' }, httpConstants.HTTP_STATUS_NOT_FOUND);
                                 } else {
                                     throw error;
                                 }
@@ -59,22 +58,17 @@ class Application {
             );
     }
 
-       private executeMatchedHandler(request: Request, response: Response, method: string, path: string): void {
+    private executeMatchedHandler(request: Request, response: Response, method: string, path: string): void {
         for (const router of this.routers) {
             const matchedUrl = router.matchPath(method, path);
-
             if (matchedUrl === null) {
                 continue;
             }
-
             const { handler, placeholderValues } = matchedUrl;
-
             if (placeholderValues !== undefined) {
                 request.setPlaceholderValues(placeholderValues);
             }
-
             handler(request, response);
-
             return;
         }
 
