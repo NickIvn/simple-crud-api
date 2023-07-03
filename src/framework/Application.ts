@@ -1,10 +1,11 @@
 import http from 'node:http';
 import { assertNonNullish } from './asserts';
-import { Router } from './framework/Router';
-import { Response } from './framework/Response';
-import { Request } from './framework/Request';
+import { Router } from './http/Router';
+import { Response } from './http/Response';
+import { Request } from './http/Request';
 import { RouteNotMatchedError } from './error/RouteNotMatchedError';
-import { handleException } from './framework/exceptionHandler';
+import { handleException } from './exceptionHandler';
+import { HttpMethod } from './http/HttpMethodEnum';
 
 const resolveBody = async (request: Request): Promise<string> => {
     const bodyChunks: Uint8Array[] = [];
@@ -48,9 +49,7 @@ class Application {
                         const parsedUrl = new URL(url, baseUrl);
                         request.setQueryParameters(parsedUrl.searchParams);
 
-                        // console.log(`Request received: ${method} ${parsedUrl.pathname}`);
-
-                        await this.executeMatchedHandler(request, response, method, parsedUrl.pathname);
+                        await this.executeMatchedHandler(request, response, method as HttpMethod, parsedUrl.pathname);
                     } catch (error) {
                         handleException(error as Error, response);
                     }
@@ -58,17 +57,21 @@ class Application {
             );
     }
 
-    private async executeMatchedHandler(request: Request, response: Response, method: string, path: string): Promise<void> {
+    private async executeMatchedHandler(request: Request, response: Response, method: HttpMethod, path: string): Promise<void> {
         for (const router of this.routers) {
             const matchedUrl = router.matchPath(method, path);
+
             if (matchedUrl === null) {
                 continue;
             }
+
             const { handler, placeholderValues } = matchedUrl;
+
             if (placeholderValues !== undefined) {
                 request.setPlaceholderValues(placeholderValues);
             }
-            // eslint-disable-next-line no-await-in-loop
+
+            // @ts-ignore: This is a valid call.
             await handler(request, response);
             return;
         }
@@ -78,3 +81,4 @@ class Application {
 }
 
 export { Application };
+

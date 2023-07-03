@@ -18,3 +18,4 @@ class Type implements ValidationRule {
 }
 
 export { Type };
+

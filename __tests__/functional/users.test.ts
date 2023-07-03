@@ -1,14 +1,14 @@
 import supertest from 'supertest';
 import { constants as httpConstants } from 'node:http2';
 import { validate as validateUuid, v4 as uuidv4 } from 'uuid';
-import { CreateUserDto, UpdateUserDto } from '../src/components/user/userDto';
-import { userRepository } from '../src/components/user/userRepository';
-import { User } from '../src/components/user/userEntity';
-import { omit } from '../src/utils';
-import { createApplication } from '../src/applicationCreator';
-import {EXCEPTION_MESSAGE_INVALID_JSON} from "../src/framework/exceptionHandler";
+import { CreateUserDto, UpdateUserDto } from '../../src/components/user/userDto';
+import { userRepository } from '../../src/components/user/userRepository';
+import { User } from '../../src/components/user/userEntity';
+import { EXCEPTION_MESSAGE_INVALID_JSON } from '../../src/framework/exceptionHandler';
+import { createSingleNodeApplication } from '../../src/framework/singleNodeApplicationCreator';
+import { omit } from '../../src/framework/extended-functions-api/omit';
 
-const app = createApplication();
+const app = createSingleNodeApplication();
 const request = supertest(app.createServer('http://localhost'));
 
 beforeEach(() => {
@@ -18,6 +18,138 @@ beforeEach(() => {
 });
 
 describe('Users Model', () => {
+    describe('Multi-step scenarios', () => {
+        it('Scenario 1: create, update, get, delete a user', async () => {
+            // action
+            const response1 = await request.get('/api/users');
+
+            expect(response1.body).toHaveLength(0);
+
+            // action
+            const createUserDto: CreateUserDto = {
+                username: 'John',
+                age: 20,
+                hobbies: ['hiking', 'reading'],
+            };
+
+            const response2 = await request.post('/api/users').send(createUserDto);
+
+            expect(response2.status).toBe(httpConstants.HTTP_STATUS_CREATED);
+            const createdUserId = response2.body.id;
+
+            // action
+            const response3 = await request.get(`/api/users/${createdUserId}`);
+            expect(response3.body.username).toBe('John');
+
+            // action
+            const updateUserDto: UpdateUserDto = {
+                username: 'John Doe',
+                age: 13,
+                hobbies: ['programming'],
+            };
+
+            const response4 = await request.put(`/api/users/${createdUserId}`).send(updateUserDto);
+
+            expect(response4.body).toEqual({
+                id: createdUserId,
+                username: 'John Doe',
+                age: 13,
+                hobbies: ['programming'],
+            });
+
+            // action
+            await request.delete(`/api/users/${createdUserId}`);
+
+            // action
+            const response5 = await request.get(`/api/users/${createdUserId}`);
+            expect(response5.status).toBe(httpConstants.HTTP_STATUS_NOT_FOUND);
+        });
+
+        it('Scenario 2: id of removed users are not reused', async () => {
+            // action
+            const createUserDto1: CreateUserDto = {
+                username: 'John 1',
+                age: 20,
+                hobbies: ['hiking', 'reading'],
+            };
+
+            const response1 = await request.post('/api/users').send(createUserDto1);
+            const createdUser1Id = response1.body.id;
+
+            // action
+            const createUserDto2: CreateUserDto = {
+                username: 'John 2',
+                age: 20,
+                hobbies: ['hiking', 'reading'],
+            };
+
+            const response2 = await request.post('/api/users').send(createUserDto2);
+            const createdUser2Id = response2.body.id;
+
+            // action
+            await request.delete(`/api/users/${createdUser1Id}`);
+            await request.delete(`/api/users/${createdUser1Id}`);
+
+            // action
+            const createUserDto3: CreateUserDto = {
+                username: 'John 3',
+                age: 20,
+                hobbies: ['hiking', 'reading'],
+            };
+
+            const response3 = await request.post('/api/users').send(createUserDto3);
+            const createdUser3Id = response3.body.id;
+
+            expect(createdUser3Id).not.toBe(createdUser1Id);
+            expect(createdUser3Id).not.toBe(createdUser2Id);
+        });
+
+        it('Scenario 3: updating deleted user leads to 404', async () => {
+            // action
+            const createUserDto1: CreateUserDto = {
+                username: 'John 1',
+                age: 20,
+                hobbies: ['hiking', 'reading'],
+            };
+
+            const response1 = await request.post('/api/users').send(createUserDto1);
+            const createdUserId = response1.body.id;
+
+            // action
+            await request.delete(`/api/users/${createdUserId}`);
+
+            // action
+            const updateUserDto: UpdateUserDto = {
+                username: 'John 1 Edited',
+                age: 13,
+                hobbies: ['programming'],
+            };
+
+            const response2 = await request.put(`/api/users/${createdUserId}`).send(updateUserDto);
+
+            expect(response2.status).toBe(httpConstants.HTTP_STATUS_NOT_FOUND);
+        });
+
+        it('Scenario 4: incorrect usage of HTTP verbs is not allowed', async () => {
+            // action - trying to create user
+            const createUserDto1: CreateUserDto = {
+                username: 'John 1',
+                age: 20,
+                hobbies: ['hiking', 'reading'],
+            };
+            const response1 = await request.post('/api/users/123').send(createUserDto1);
+            expect(response1.status).toBe(httpConstants.HTTP_STATUS_METHOD_NOT_ALLOWED);
+
+            // action - trying to update a user
+            const response2 = await request.put('/api/users').send(createUserDto1);
+            expect(response2.status).toBe(httpConstants.HTTP_STATUS_METHOD_NOT_ALLOWED);
+
+            // action - trying to delete a user
+            const response3 = await request.delete('/api/users');
+            expect(response3.status).toBe(httpConstants.HTTP_STATUS_METHOD_NOT_ALLOWED);
+        });
+    });
+
     describe('POST /users', () => {
         it('creates a new user', async () => {
             const createUserDto: CreateUserDto = {
@@ -34,8 +166,8 @@ describe('Users Model', () => {
             const userWithoutId = omit(response.body, 'id');
 
             expect(userWithoutId).toEqual(createUserDto);
-            const allUsers = await userRepository.findAll();
 
+            const allUsers = await userRepository.findAll();
             expect(allUsers.length).toEqual(1);
         });
 
@@ -137,6 +269,7 @@ describe('Users Model', () => {
                 ],
             });
         });
+
         it('returns 400 when request has extra properties', async () => {
             const createUserDto = {
                 username: 'Test',
@@ -159,11 +292,12 @@ describe('Users Model', () => {
                 ],
             });
         });
+
         it('returns 400 when request has invalid json', async () => {
             const response = await request.post('/api/users').send('invalid json');
 
             expect(response.status).toBe(httpConstants.HTTP_STATUS_BAD_REQUEST);
-            expect(response.body).toEqual({'message': EXCEPTION_MESSAGE_INVALID_JSON});
+            expect(response.body).toEqual({ message: EXCEPTION_MESSAGE_INVALID_JSON });
         });
     });
 
@@ -176,8 +310,8 @@ describe('Users Model', () => {
         });
 
         it('returns existing users from the database', async () => {
-            userRepository.create(new User('John', 20, ['hiking', 'reading']));
-            userRepository.create(new User('Nick', 13, ['programming']));
+            await userRepository.create(new User('John', 20, ['hiking', 'reading']));
+            await userRepository.create(new User('Nick', 13, ['programming']));
 
             const response = await request.get('/api/users');
 
@@ -186,8 +320,8 @@ describe('Users Model', () => {
         });
 
         it('returns existing users with search query', async () => {
-            userRepository.create(new User('John', 20, ['hiking', 'reading']));
-            userRepository.create(new User('Nick', 13, ['programming']));
+            await userRepository.create(new User('John', 20, ['hiking', 'reading']));
+            await userRepository.create(new User('Nick', 13, ['programming']));
 
             const response = await request.get('/api/users?search=John');
 
@@ -204,7 +338,7 @@ describe('Users Model', () => {
             expect(response.status).toBe(httpConstants.HTTP_STATUS_OK);
             expect(response.body).toHaveLength(2);
         });
-            });
+    });
 
     describe('GET /users/:id', () => {
         it('returns 404 when user does not exist', async () => {
@@ -221,8 +355,10 @@ describe('Users Model', () => {
             expect(response.status).toBe(httpConstants.HTTP_STATUS_OK);
             expect(response.body).toEqual(user);
         });
+
         it('returns existing user from the database with trailing slash', async () => {
             const user = await userRepository.create(new User('John', 20, ['hiking', 'reading']));
+
             const response = await request.get(`/api/users/${user.getId()}/`);
 
             expect(response.status).toBe(httpConstants.HTTP_STATUS_OK);
@@ -247,6 +383,7 @@ describe('Users Model', () => {
             const userWithoutId = omit(response.body, 'id');
 
             expect(userWithoutId).toEqual(updateUserDto);
+            expect(user.getId()).toEqual(response.body.id);
         });
 
         it('returns 404 when user does not exist', async () => {
@@ -415,3 +552,4 @@ describe('Users Model', () => {
         });
     });
 });
+
