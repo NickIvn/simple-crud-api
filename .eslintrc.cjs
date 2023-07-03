@@ -16,6 +16,8 @@ module.exports = {
         '@typescript-eslint/indent': ['error', 4],
         'import/prefer-default-export': 'off',
         'import/no-default-export': 'error',
-        "linebreak-style": 0
+        "linebreak-style": 0,
+        "no-restricted-syntax": "off",
+        "no-continue": "off"
     }
 };
