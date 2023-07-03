@@ -21,6 +21,8 @@ module.exports = {
         'no-continue': 'off',
         'no-use-before-define': 'off',
         'no-console': 'off',
-        "guard-for-in": "off"
+        "guard-for-in": "off",
+        'no-return-await': 'off',
+        '@typescript-eslint/return-await': ['error', 'always'],
     }
 };
